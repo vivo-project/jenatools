@@ -104,7 +104,7 @@ public class ApplicationStores {
                 if (contentDataset == null) {
                     throw new RuntimeException("Unable to connect to SDB content triple store");
                 }
-            } else if (isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp.triplesource.impl.sdb.ContentTripleSourceTDB")) {
+            } else if (isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp.triplesource.impl.tdb.ContentTripleSourceTDB")) {
                 Statement stmt = contentSource.getProperty(applicationModel.createProperty("http://vitro.mannlib.cornell.edu/ns/vitro/ApplicationSetup#hasTdbDirectory"));
 
                 String tdbDirectory = null;
@@ -161,14 +161,8 @@ public class ApplicationStores {
         if (configurationDataset != null) {
             try {
                 InputStream inputStream = new BufferedInputStream(new FileInputStream(input));
-                if (configurationDataset.supportsTransactions()) {
-                    configurationDataset.begin(ReadWrite.WRITE) ;
-                }
                 RDFDataMgr.read(configurationDataset, inputStream, Lang.TRIG);
                 inputStream.close();
-                if (configurationDataset.supportsTransactions()) {
-                    configurationDataset.commit();
-                }
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to read configuration file");
             } catch (IOException e) {
@@ -181,14 +175,8 @@ public class ApplicationStores {
         if (contentDataset != null) {
             try {
                 InputStream inputStream = new BufferedInputStream(new FileInputStream(input));
-                if (contentDataset.supportsTransactions()) {
-                    contentDataset.begin(ReadWrite.WRITE);
-                }
                 RDFDataMgr.read(contentDataset, inputStream, Lang.TRIG);
                 inputStream.close();
-                if (contentDataset.supportsTransactions()) {
-                    contentDataset.commit();
-                }
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to read content file");
             } catch (IOException e) {

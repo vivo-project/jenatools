@@ -10,6 +10,7 @@ import com.hp.hpl.jena.query.DatasetFactory;
 import com.hp.hpl.jena.rdf.model.AnonId;
 import com.hp.hpl.jena.sdb.layout2.ValueType;
 import com.hp.hpl.jena.sparql.core.Quad;
+import com.hp.hpl.jena.tdb.TDB;
 import org.apache.commons.lang3.StringUtils;
 import com.hp.hpl.jena.query.Dataset;
 import com.hp.hpl.jena.query.ReadWrite;
@@ -103,7 +104,7 @@ public class ApplicationStores {
                 if (contentDataset == null) {
                     throw new RuntimeException("Unable to connect to SDB content triple store");
                 }
-            } else if (isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp.triplesource.impl.sdb.ContentTripleSourceTDB")) {
+            } else if (isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp.triplesource.impl.tdb.ContentTripleSourceTDB")) {
                 Statement stmt = contentSource.getProperty(applicationModel.createProperty("http://vitro.mannlib.cornell.edu/ns/vitro/ApplicationSetup#hasTdbDirectory"));
 
                 String tdbDirectory = null;
@@ -160,14 +161,9 @@ public class ApplicationStores {
         if (configurationDataset != null) {
             try {
                 InputStream inputStream = new BufferedInputStream(new FileInputStream(input));
-                if (configurationDataset.supportsTransactions()) {
-                    configurationDataset.begin(ReadWrite.WRITE) ;
-                }
                 RDFDataMgr.read(configurationDataset, inputStream, Lang.TRIG);
+                TDB.sync(configurationDataset);
                 inputStream.close();
-                if (configurationDataset.supportsTransactions()) {
-                    configurationDataset.commit();
-                }
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to read configuration file");
             } catch (IOException e) {
@@ -180,14 +176,9 @@ public class ApplicationStores {
         if (contentDataset != null) {
             try {
                 InputStream inputStream = new BufferedInputStream(new FileInputStream(input));
-                if (contentDataset.supportsTransactions()) {
-                    contentDataset.begin(ReadWrite.WRITE);
-                }
                 RDFDataMgr.read(contentDataset, inputStream, Lang.TRIG);
+                TDB.sync(contentDataset);
                 inputStream.close();
-                if (contentDataset.supportsTransactions()) {
-                    contentDataset.commit();
-                }
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to read content file");
             } catch (IOException e) {
