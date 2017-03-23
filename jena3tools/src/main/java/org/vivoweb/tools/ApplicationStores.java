@@ -1,7 +1,14 @@
 package org.vivoweb.tools;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.jena.datatypes.RDFDatatype;
+import org.apache.jena.datatypes.TypeMapper;
+import org.apache.jena.datatypes.xsd.XSDDatatype;
+import org.apache.jena.graph.Node;
+import org.apache.jena.graph.NodeFactory;
+import org.apache.jena.graph.Triple;
 import org.apache.jena.query.Dataset;
+import org.apache.jena.query.DatasetFactory;
 import org.apache.jena.query.ReadWrite;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
@@ -15,11 +22,13 @@ import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.sdb.SDBFactory;
 import org.apache.jena.sdb.Store;
 import org.apache.jena.sdb.StoreDesc;
+import org.apache.jena.sdb.layout2.ValueType;
 import org.apache.jena.sdb.sql.SDBConnection;
 import org.apache.jena.sdb.sql.SDBExceptionSQL;
 import org.apache.jena.sdb.store.DatabaseType;
 import org.apache.jena.sdb.store.LayoutType;
 import org.apache.jena.sdb.util.StoreUtils;
+import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.tdb.TDBFactory;
 import org.apache.jena.vocabulary.RDF;
 
@@ -35,6 +44,7 @@ import java.io.OutputStream;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
 
@@ -43,6 +53,9 @@ public class ApplicationStores {
 
     private Dataset contentDataset;
     private Dataset configurationDataset;
+
+    private Connection contentConnection;
+    private StoreDesc  contentStoreDesc;
 
     private boolean configured = false;
 
@@ -75,7 +88,9 @@ public class ApplicationStores {
                     throw new RuntimeException("Unable to load properties");
                 }
 
-                Store store = SDBFactory.connectStore(makeConnection(props), makeStoreDesc(props));
+                contentConnection = makeConnection(props);
+                contentStoreDesc  = makeStoreDesc(props);
+                Store store = SDBFactory.connectStore(contentConnection, contentStoreDesc);
                 if (store == null) {
                     throw new RuntimeException("Unable to connect to SDB content triple store");
                 }
@@ -200,13 +215,137 @@ public class ApplicationStores {
         if (contentDataset != null) {
             try {
                 OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(output, false));
-                RDFDataMgr.write(outputStream, contentDataset, RDFFormat.TRIG_BLOCKS);
-                outputStream.close();
+                try {
+                    if (LayoutType.LayoutTripleNodesHash.equals(contentStoreDesc.getLayout()) ||
+                        LayoutType.LayoutTripleNodesIndex.equals(contentStoreDesc.getLayout())) {
+                        if (DatabaseType.MySQL.equals(contentStoreDesc.getDbType()) ||
+                                DatabaseType.PostgreSQL.equals(contentStoreDesc.getDbType())) {
+
+                            long offset = 0;
+                            long limit  = 10000;
+
+                            while (writeContentSQL(outputStream, offset, limit)) {
+                                offset += limit;
+                            }
+
+                        } else {
+                            RDFDataMgr.write(outputStream, contentDataset, RDFFormat.TRIG_BLOCKS);
+                        }
+                    } else {
+                        RDFDataMgr.write(outputStream, contentDataset, RDFFormat.TRIG_BLOCKS);
+                    }
+                } finally {
+                    outputStream.close();
+                }
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to write content file");
             } catch (IOException e) {
                 throw new RuntimeException("Unable to write content file");
             }
+        }
+    }
+
+    private boolean writeContentSQL(OutputStream outputStream, long offset, long limit) {
+        Dataset quads = DatasetFactory.createMem();
+//        quads.asDatasetGraph().add(new Quad());
+
+        try {
+            java.sql.Statement stmt = contentConnection.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT \n" +
+                    "N1.lex AS s_lex, N1.lang AS s_lang, N1.datatype AS s_datatype, N1.type AS s_type,\n" +
+                    "N2.lex AS p_lex, N2.lang AS p_lang, N2.datatype AS p_datatype, N2.type AS p_type,\n" +
+                    "N3.lex AS o_lex, N3.lang AS o_lang, N3.datatype AS o_datatype, N3.type AS o_type,\n" +
+                    "N4.lex AS g_lex, N4.lang AS g_lang, N4.datatype AS g_datatype, N4.type AS g_type \n" +
+                    "FROM\n" +
+                    "(SELECT g,s,p,o FROM Quads" +
+                    " ORDER BY g,s,p,o " +
+                    (limit > 0 ? "LIMIT " + limit : "") +
+                    (offset > 0 ? " OFFSET " + offset : "") + ") Q\n" +
+                    ( LayoutType.LayoutTripleNodesHash.equals(contentStoreDesc.getLayout()) ?
+                            (
+                                    "LEFT OUTER JOIN Nodes AS N1 ON ( Q.s = N1.hash ) " +
+                                    "LEFT OUTER JOIN Nodes AS N2 ON ( Q.p = N2.hash ) " +
+                                    "LEFT OUTER JOIN Nodes AS N3 ON ( Q.o = N3.hash ) " +
+                                    "LEFT OUTER JOIN Nodes AS N4 ON ( Q.g = N4.hash ) "
+                            ) :
+                            (
+                                    "LEFT OUTER JOIN Nodes AS N1 ON ( Q.s = N1.id ) " +
+                                    "LEFT OUTER JOIN Nodes AS N2 ON ( Q.p = N2.id ) " +
+                                    "LEFT OUTER JOIN Nodes AS N3 ON ( Q.o = N3.id ) " +
+                                    "LEFT OUTER JOIN Nodes AS N4 ON ( Q.g = N4.id ) "
+                            )
+                    )
+            );
+
+            try {
+                while (rs.next()) {
+                    Node subjectNode = makeNode(
+                            rs.getString("s_lex"),
+                            rs.getString("s_datatype"),
+                            rs.getString("s_lang"),
+                            ValueType.lookup(rs.getInt("s_type")));
+
+                    Node predicateNode = makeNode(
+                            rs.getString("p_lex"),
+                            rs.getString("p_datatype"),
+                            rs.getString("p_lang"),
+                            ValueType.lookup(rs.getInt("p_type")));
+
+                    Node objectNode = makeNode(
+                            rs.getString("o_lex"),
+                            rs.getString("o_datatype"),
+                            rs.getString("o_lang"),
+                            ValueType.lookup(rs.getInt("o_type")));
+
+                    Node graphNode = makeNode(
+                            rs.getString("g_lex"),
+                            rs.getString("g_datatype"),
+                            rs.getString("g_lang"),
+                            ValueType.lookup(rs.getInt("g_type")));
+
+                    quads.asDatasetGraph().add(Quad.create(
+                            graphNode,
+                            Triple.create(subjectNode, predicateNode, objectNode)
+                    ));
+                }
+            } finally {
+                rs.close();
+            }
+
+            if (quads.asDatasetGraph().size() > 0) {
+                RDFDataMgr.write(outputStream, quads, RDFFormat.TRIG_BLOCKS);
+                return true;
+            }
+        } catch (SQLException sqle) {
+            throw new RuntimeException("Unable to retrieve triples", sqle);
+        } finally {
+        }
+
+        return false;
+    }
+
+    // Copied from Jena SQLBridge2
+    private static Node makeNode(String lex, String datatype, String lang, ValueType vType) {
+        switch(vType) {
+            case BNODE:
+                return NodeFactory.createBlankNode(lex);
+            case URI:
+                return NodeFactory.createURI(lex);
+            case STRING:
+                return NodeFactory.createLiteral(lex, lang);
+            case XSDSTRING:
+                return NodeFactory.createLiteral(lex, XSDDatatype.XSDstring);
+            case INTEGER:
+                return NodeFactory.createLiteral(lex, XSDDatatype.XSDinteger);
+            case DOUBLE:
+                return NodeFactory.createLiteral(lex, XSDDatatype.XSDdouble);
+            case DATETIME:
+                return NodeFactory.createLiteral(lex, XSDDatatype.XSDdateTime);
+            case OTHER:
+                RDFDatatype dt = TypeMapper.getInstance().getSafeTypeByName(datatype);
+                return NodeFactory.createLiteral(lex, dt);
+            default:
+                return NodeFactory.createLiteral("UNRECOGNIZED");
         }
     }
 
