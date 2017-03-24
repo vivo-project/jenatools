@@ -381,6 +381,8 @@ public class ApplicationStores {
         if (contentDataset != null) {
             contentDataset.close();
         }
+
+        TDB.closedown();
     }
 
     private boolean isType(Resource resource, String type) {

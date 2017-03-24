@@ -29,6 +29,7 @@ import org.apache.jena.sdb.store.DatabaseType;
 import org.apache.jena.sdb.store.LayoutType;
 import org.apache.jena.sdb.util.StoreUtils;
 import org.apache.jena.sparql.core.Quad;
+import org.apache.jena.tdb.TDB;
 import org.apache.jena.tdb.TDBFactory;
 import org.apache.jena.vocabulary.RDF;
 
@@ -162,6 +163,7 @@ public class ApplicationStores {
             try {
                 InputStream inputStream = new BufferedInputStream(new FileInputStream(input));
                 RDFDataMgr.read(configurationDataset, inputStream, Lang.TRIG);
+                TDB.sync(configurationDataset);
                 inputStream.close();
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to read configuration file");
@@ -176,6 +178,7 @@ public class ApplicationStores {
             try {
                 InputStream inputStream = new BufferedInputStream(new FileInputStream(input));
                 RDFDataMgr.read(contentDataset, inputStream, Lang.TRIG);
+                TDB.sync(contentDataset);
                 inputStream.close();
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to read content file");
@@ -379,6 +382,8 @@ public class ApplicationStores {
         if (contentDataset != null) {
             contentDataset.close();
         }
+
+        TDB.closedown();
     }
 
     private boolean isType(Resource resource, String type) {
