@@ -9,7 +9,6 @@ import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.DatasetFactory;
-import org.apache.jena.query.ReadWrite;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.NodeIterator;
@@ -23,9 +22,9 @@ import org.apache.jena.sdb.SDBFactory;
 import org.apache.jena.sdb.Store;
 import org.apache.jena.sdb.StoreDesc;
 import org.apache.jena.sdb.layout2.ValueType;
-import org.apache.jena.sdb.sql.SDBConnection;
 import org.apache.jena.sdb.sql.SDBExceptionSQL;
 import org.apache.jena.sdb.store.DatabaseType;
+import org.apache.jena.sdb.store.DatasetGraphSDB;
 import org.apache.jena.sdb.store.LayoutType;
 import org.apache.jena.sdb.util.StoreUtils;
 import org.apache.jena.sparql.core.Quad;
@@ -35,13 +34,19 @@ import org.apache.jena.vocabulary.RDF;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.Reader;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -50,13 +55,12 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 public class ApplicationStores {
+    private final static int BATCH_SIZE = 10000;
+
     private final Model applicationModel;
 
     private Dataset contentDataset;
     private Dataset configurationDataset;
-
-    private Connection contentConnection;
-    private StoreDesc  contentStoreDesc;
 
     private boolean configured = false;
 
@@ -89,8 +93,8 @@ public class ApplicationStores {
                     throw new RuntimeException("Unable to load properties");
                 }
 
-                contentConnection = makeConnection(props);
-                contentStoreDesc  = makeStoreDesc(props);
+                Connection contentConnection = makeConnection(props);
+                StoreDesc  contentStoreDesc  = makeStoreDesc(props);
                 Store store = SDBFactory.connectStore(contentConnection, contentStoreDesc);
                 if (store == null) {
                     throw new RuntimeException("Unable to connect to SDB content triple store");
@@ -105,6 +109,8 @@ public class ApplicationStores {
                 if (contentDataset == null) {
                     throw new RuntimeException("Unable to connect to SDB content triple store");
                 }
+//                DatasetGraphSDB xx;
+//                xx.getStore().getConnection().getSqlConnection().set
             } else if (isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp.triplesource.impl.tdb.ContentTripleSourceTDB")) {
                 Statement stmt = contentSource.getProperty(applicationModel.createProperty("http://vitro.mannlib.cornell.edu/ns/vitro/ApplicationSetup#hasTdbDirectory"));
 
@@ -162,9 +168,11 @@ public class ApplicationStores {
         if (configurationDataset != null) {
             try {
                 InputStream inputStream = new BufferedInputStream(new FileInputStream(input));
-                RDFDataMgr.read(configurationDataset, inputStream, Lang.TRIG);
-                TDB.sync(configurationDataset);
-                inputStream.close();
+                try {
+                    readDataset(configurationDataset, inputStream);
+                } finally {
+                    inputStream.close();
+                }
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to read configuration file");
             } catch (IOException e) {
@@ -177,9 +185,11 @@ public class ApplicationStores {
         if (contentDataset != null) {
             try {
                 InputStream inputStream = new BufferedInputStream(new FileInputStream(input));
-                RDFDataMgr.read(contentDataset, inputStream, Lang.TRIG);
-                TDB.sync(contentDataset);
-                inputStream.close();
+                try {
+                    readDataset(contentDataset, inputStream);
+                } finally {
+                    inputStream.close();
+                }
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to read content file");
             } catch (IOException e) {
@@ -188,12 +198,66 @@ public class ApplicationStores {
         }
     }
 
+    private void readDataset(Dataset ds, InputStream inputStream) {
+        if (ds.asDatasetGraph() instanceof DatasetGraphSDB) {
+            DatasetGraphSDB dsgSDB = (DatasetGraphSDB)ds.asDatasetGraph();
+            Connection conn = dsgSDB.getStore().getConnection().getSqlConnection();
+            try {
+                conn.setAutoCommit(false);
+            } catch (SQLException e) {
+            }
+
+            try {
+                int count = 0;
+                boolean inGraph = false;
+                String thisLine;
+                BufferedReader r = new BufferedReader(new InputStreamReader(inputStream));
+                StringBuilder sb = new StringBuilder();
+                while ((thisLine = r.readLine()) != null) {
+                    String trimmed = thisLine.trim();
+                    if (trimmed.startsWith("<") && trimmed.endsWith("{")) {
+                        inGraph = true;
+                    } else if (trimmed.startsWith("}")) {
+                        inGraph = false;
+                    }
+
+                    sb.append(thisLine).append("\n");
+                    count++;
+
+                    if (!inGraph && count > BATCH_SIZE) {
+                        InputStream stringStream = new ByteArrayInputStream(sb.toString().getBytes(StandardCharsets.UTF_8));
+                        RDFDataMgr.read(ds, stringStream, Lang.TRIG);
+                        stringStream.close();
+                        conn.commit();
+                        count = 0;
+                        sb = new StringBuilder();
+                    }
+                }
+
+                if (sb.length() > 0) {
+                    InputStream stringStream = new ByteArrayInputStream(sb.toString().getBytes(StandardCharsets.UTF_8));
+                    RDFDataMgr.read(ds, stringStream, Lang.TRIG);
+                    stringStream.close();
+                    conn.commit();
+                }
+            } catch (IOException e) {
+            } catch (SQLException e) {
+            }
+        } else {
+            RDFDataMgr.read(ds, inputStream, Lang.TRIG);
+            TDB.sync(ds);
+        }
+    }
+
     public void writeConfiguration(File output) {
         if (configurationDataset != null) {
             try {
                 OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(output, false));
-                RDFDataMgr.write(outputStream, configurationDataset, RDFFormat.TRIG_BLOCKS);
-                outputStream.close();
+                try {
+                    writeDataset(configurationDataset, outputStream);
+                } finally {
+                    outputStream.close();
+                }
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to write configuration file");
             } catch (IOException e) {
@@ -207,24 +271,7 @@ public class ApplicationStores {
             try {
                 OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(output, false));
                 try {
-                    if (LayoutType.LayoutTripleNodesHash.equals(contentStoreDesc.getLayout()) ||
-                        LayoutType.LayoutTripleNodesIndex.equals(contentStoreDesc.getLayout())) {
-                        if (DatabaseType.MySQL.equals(contentStoreDesc.getDbType()) ||
-                                DatabaseType.PostgreSQL.equals(contentStoreDesc.getDbType())) {
-
-                            long offset = 0;
-                            long limit  = 10000;
-
-                            while (writeContentSQL(outputStream, offset, limit)) {
-                                offset += limit;
-                            }
-
-                        } else {
-                            RDFDataMgr.write(outputStream, contentDataset, RDFFormat.TRIG_BLOCKS);
-                        }
-                    } else {
-                        RDFDataMgr.write(outputStream, contentDataset, RDFFormat.TRIG_BLOCKS);
-                    }
+                    writeDataset(contentDataset, outputStream);
                 } finally {
                     outputStream.close();
                 }
@@ -236,12 +283,40 @@ public class ApplicationStores {
         }
     }
 
-    private boolean writeContentSQL(OutputStream outputStream, long offset, long limit) {
+    private void writeDataset(Dataset ds, OutputStream outputStream) {
+        if (ds.asDatasetGraph() instanceof DatasetGraphSDB) {
+            DatasetGraphSDB dsgSDB = (DatasetGraphSDB)ds.asDatasetGraph();
+
+            if (LayoutType.LayoutTripleNodesHash.equals(dsgSDB.getStore().getLayoutType()) ||
+                LayoutType.LayoutTripleNodesIndex.equals(dsgSDB.getStore().getLayoutType())) {
+                if (DatabaseType.MySQL.equals(dsgSDB.getStore().getDatabaseType()) ||
+                    DatabaseType.PostgreSQL.equals(dsgSDB.getStore().getDatabaseType())) {
+
+                    long offset = 0;
+                    long limit  = BATCH_SIZE;
+
+                    while (writeSQL(
+                            dsgSDB.getStore().getConnection().getSqlConnection(),
+                            dsgSDB.getStore().getLayoutType(),
+                            outputStream,
+                            offset,
+                            limit)) {
+                        offset += limit;
+                    }
+                }
+
+                return;
+            }
+        }
+
+        RDFDataMgr.write(outputStream, ds, RDFFormat.TRIG_BLOCKS);
+    }
+
+    private boolean writeSQL(Connection conn, LayoutType layout, OutputStream outputStream, long offset, long limit) {
         Dataset quads = DatasetFactory.createMem();
-//        quads.asDatasetGraph().add(new Quad());
 
         try {
-            java.sql.Statement stmt = contentConnection.createStatement();
+            java.sql.Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery("SELECT \n" +
                     "N1.lex AS s_lex, N1.lang AS s_lang, N1.datatype AS s_datatype, N1.type AS s_type,\n" +
                     "N2.lex AS p_lex, N2.lang AS p_lang, N2.datatype AS p_datatype, N2.type AS p_type,\n" +
@@ -252,7 +327,7 @@ public class ApplicationStores {
                     " ORDER BY g,s,p,o " +
                     (limit > 0 ? "LIMIT " + limit : "") +
                     (offset > 0 ? " OFFSET " + offset : "") + ") Q\n" +
-                    ( LayoutType.LayoutTripleNodesHash.equals(contentStoreDesc.getLayout()) ?
+                    ( LayoutType.LayoutTripleNodesHash.equals(layout) ?
                             (
                                     "LEFT OUTER JOIN Nodes AS N1 ON ( Q.s = N1.hash ) " +
                                     "LEFT OUTER JOIN Nodes AS N2 ON ( Q.p = N2.hash ) " +
