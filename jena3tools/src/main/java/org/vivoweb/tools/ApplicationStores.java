@@ -150,7 +150,7 @@ public class ApplicationStores {
 
             configured = true;
         } catch (SQLException e) {
-            throw new RuntimeException("SQL Exception");
+            throw new RuntimeException("SQL Exception", e);
         } finally {
             if (!configured) {
                 close();
@@ -162,9 +162,12 @@ public class ApplicationStores {
         if (configurationDataset != null) {
             try {
                 InputStream inputStream = new BufferedInputStream(new FileInputStream(input));
-                RDFDataMgr.read(configurationDataset, inputStream, Lang.TRIG);
-                TDB.sync(configurationDataset);
-                inputStream.close();
+                try {
+                    RDFDataMgr.read(configurationDataset, inputStream, Lang.TRIG);
+                    TDB.sync(configurationDataset);
+                } finally {
+                    inputStream.close();
+                }
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to read configuration file");
             } catch (IOException e) {
@@ -177,9 +180,20 @@ public class ApplicationStores {
         if (contentDataset != null) {
             try {
                 InputStream inputStream = new BufferedInputStream(new FileInputStream(input));
-                RDFDataMgr.read(contentDataset, inputStream, Lang.TRIG);
-                TDB.sync(contentDataset);
-                inputStream.close();
+                try {
+                    if (contentConnection != null) {
+                        contentConnection.setAutoCommit(false);
+                        RDFDataMgr.read(contentDataset, inputStream, Lang.TRIG);
+                        contentConnection.commit();
+                    } else {
+                        RDFDataMgr.read(contentDataset, inputStream, Lang.TRIG);
+                        TDB.sync(contentDataset);
+                    }
+                } catch (SQLException e) {
+                    throw new RuntimeException("SQL exception", e);
+                } finally {
+                    inputStream.close();
+                }
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to read content file");
             } catch (IOException e) {
@@ -237,8 +251,7 @@ public class ApplicationStores {
     }
 
     private boolean writeContentSQL(OutputStream outputStream, long offset, long limit) {
-        Dataset quads = DatasetFactory.createMem();
-//        quads.asDatasetGraph().add(new Quad());
+        Dataset quads = DatasetFactory.create();
 
         try {
             java.sql.Statement stmt = contentConnection.createStatement();
