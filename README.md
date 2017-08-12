@@ -5,13 +5,17 @@ Tools for converting VIVO/Vitro triple stores from Jena2 to Jena3
 Please report any experiences with this software 
 to [vivo-tech@googlegroups.com](mailto:vivo-tech@googlegroups.com).  Thanks!*
 
-## jena2tool
+## jena2tools
 
 Exports VIVO/Vitro SDB and TDB triples stores in Jena2 format to TriG format.
 
-## jena3tool
+## jena3tools
 
 Imports TriG format to VIVO/Vitro SDB and TDB triple stores in Jena3 format.
+
+## Distribution
+
+jena2tools and jena3tools are distributed with VIVO/Vitro 1.10-beta releases and can be found in <home>/bin
 
 ## Documentation
 
