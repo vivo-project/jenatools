@@ -15,7 +15,7 @@ Imports TriG format to VIVO/Vitro SDB and TDB triple stores in Jena3 format.
 
 ## Distribution
 
-jena2tools and jena3tools are distributed with VIVO/Vitro 1.10-beta releases and can be found in <home>/bin
+jena2tools and jena3tools are distributed with VIVO/Vitro 1.10-beta releases and can be found in \<home\>/bin
 
 ## Documentation
 
