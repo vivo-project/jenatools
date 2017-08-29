@@ -83,9 +83,9 @@ public class ApplicationStores {
                     props.load(in);
                     in.close();
                 } catch (FileNotFoundException f) {
-                    throw new RuntimeException("Unable to load properties");
+                    throw new RuntimeException("Unable to find properties");
                 } catch (IOException e) {
-                    throw new RuntimeException("Unable to load properties");
+                    throw new RuntimeException("Unable to load properties", e);
                 }
 
                 contentConnection = makeConnection(props);
@@ -102,7 +102,7 @@ public class ApplicationStores {
 
                 contentDataset = SDBFactory.connectDataset(store);
                 if (contentDataset == null) {
-                    throw new RuntimeException("Unable to connect to SDB content triple store");
+                    throw new RuntimeException("Unable to connect to SDB content dataset");
                 }
             } else if (isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp.triplesource.impl.tdb.ContentTripleSourceTDB")) {
                 Statement stmt = contentSource.getProperty(applicationModel.createProperty("http://vitro.mannlib.cornell.edu/ns/vitro/ApplicationSetup#hasTdbDirectory"));
@@ -122,7 +122,7 @@ public class ApplicationStores {
                         throw new RuntimeException("Unable to create content TDB source " + contentFile.getAbsolutePath());
                     }
                 } else if (!contentFile.isDirectory()) {
-                    throw new RuntimeException("Configuration triple source exists but is not a directory " + contentFile.getAbsolutePath());
+                    throw new RuntimeException("Content triple source exists but is not a directory " + contentFile.getAbsolutePath());
                 }
 
                 contentDataset = TDBFactory.createDataset(contentFile.getAbsolutePath());
@@ -143,7 +143,7 @@ public class ApplicationStores {
 
                 configurationDataset = TDBFactory.createDataset(configFile.getAbsolutePath());
                 if (configurationDataset == null) {
-                    throw new RuntimeException("Unable to open TDB content triple store");
+                    throw new RuntimeException("Unable to open TDB configuration triple store");
                 }
             }
 
@@ -168,9 +168,9 @@ public class ApplicationStores {
                     inputStream.close();
                 }
             } catch (FileNotFoundException e) {
-                throw new RuntimeException("Unable to read configuration file");
+                throw new RuntimeException("Unable to find configuration dump");
             } catch (IOException e) {
-                throw new RuntimeException("Unable to read configuration file");
+                throw new RuntimeException("Unable to read configuration dump", e);
             }
         }
     }
@@ -194,9 +194,9 @@ public class ApplicationStores {
                     inputStream.close();
                 }
             } catch (FileNotFoundException e) {
-                throw new RuntimeException("Unable to read content file");
+                throw new RuntimeException("Unable to find content dump");
             } catch (IOException e) {
-                throw new RuntimeException("Unable to read content file");
+                throw new RuntimeException("Unable to read content dump", e);
             }
         }
     }
@@ -208,9 +208,9 @@ public class ApplicationStores {
                 RDFDataMgr.write(outputStream, configurationDataset, RDFFormat.TRIG_BLOCKS);
                 outputStream.close();
             } catch (FileNotFoundException e) {
-                throw new RuntimeException("Unable to write configuration file");
+                throw new RuntimeException("Unable to write configuration dump (dir error)");
             } catch (IOException e) {
-                throw new RuntimeException("Unable to write configuration file");
+                throw new RuntimeException("Unable to write configuration dump", e);
             }
         }
     }
@@ -242,9 +242,9 @@ public class ApplicationStores {
                     outputStream.close();
                 }
             } catch (FileNotFoundException e) {
-                throw new RuntimeException("Unable to write content file");
+                throw new RuntimeException("Unable to write content dump (dir error)");
             } catch (IOException e) {
-                throw new RuntimeException("Unable to write content file");
+                throw new RuntimeException("Unable to write content dump", e);
             }
         }
     }
@@ -443,9 +443,9 @@ public class ApplicationStores {
             
             return DriverManager.getConnection(url, user, pass);
         } catch (ClassNotFoundException e) {
-            throw new RuntimeException("Unable to create JDBC connection");
+            throw new RuntimeException("Unable to find database driver");
         } catch (SQLException e) {
-            throw new RuntimeException("Unable to create JDBC connection");
+            throw new RuntimeException("Unable to create JDBC connection", e);
         }
     }
 

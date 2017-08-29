@@ -16,8 +16,8 @@ public class JenaCli {
         if (options == null) {
             System.err.println("Incorrect arguments supplied.");
             System.err.println("");
-            System.err.println("Export: java -jar jena3tools.jar -e -d <home dir>");
-            System.err.println("Import: java -jar jena3tools.jar -i -d <home dir>");
+            System.err.println("Export: java -jar jena2tools.jar -e -d <home dir>");
+            System.err.println("Import: java -jar jena2tools.jar -i -d <home dir>");
             System.exit(1);
         }
 
