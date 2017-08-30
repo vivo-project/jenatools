@@ -7,13 +7,13 @@
 
     <groupId>org.vivoweb</groupId>
     <artifactId>jena3tools</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <packaging>jar</packaging>
 
     <parent>
         <groupId>org.vivoweb</groupId>
         <artifactId>jenatools</artifactId>
-        <version>1.1.0</version>
+        <version>1.1.1</version>
         <relativePath>..</relativePath>
     </parent>
 
@@ -48,22 +48,22 @@
         <dependency>
             <groupId>org.apache.jena</groupId>
             <artifactId>jena-arq</artifactId>
-            <version>3.1.1</version>
+            <version>3.4.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.jena</groupId>
             <artifactId>jena-core</artifactId>
-            <version>3.1.1</version>
+            <version>3.4.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.jena</groupId>
             <artifactId>jena-sdb</artifactId>
-            <version>3.1.1</version>
+            <version>3.4.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.jena</groupId>
             <artifactId>jena-tdb</artifactId>
-            <version>3.1.1</version>
+            <version>3.4.0</version>
         </dependency>
         <dependency>
             <!-- NB: 3.5 conflicts with Jena 3.1.1 -->
