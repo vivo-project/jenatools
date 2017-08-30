@@ -229,10 +229,15 @@ public class ApplicationStores {
                             long offset = 0;
                             long limit  = 10000;
 
-                            while (writeContentSQL(outputStream, offset, limit)) {
+                            Dataset blankQuads = DatasetFactory.createMem();
+
+                            while (writeContentSQL(outputStream, blankQuads, offset, limit)) {
                                 offset += limit;
                             }
 
+                            if (blankQuads.asDatasetGraph().size() > 0) {
+                                RDFDataMgr.write(outputStream, blankQuads, RDFFormat.TRIG_BLOCKS);
+                            }
                         } else {
                             RDFDataMgr.write(outputStream, contentDataset, RDFFormat.TRIG_BLOCKS);
                         }
@@ -250,7 +255,7 @@ public class ApplicationStores {
         }
     }
 
-    private boolean writeContentSQL(OutputStream outputStream, long offset, long limit) {
+    private boolean writeContentSQL(OutputStream outputStream, Dataset blankQuads, long offset, long limit) {
         Dataset quads = DatasetFactory.create();
 
         try {
@@ -307,10 +312,17 @@ public class ApplicationStores {
                             rs.getString("g_lang"),
                             ValueType.lookup(rs.getInt("g_type")));
 
-                    quads.asDatasetGraph().add(Quad.create(
-                            graphNode,
-                            Triple.create(subjectNode, predicateNode, objectNode)
-                    ));
+                    if (subjectNode.isBlank() || predicateNode.isBlank() || objectNode.isBlank()) {
+                        blankQuads.asDatasetGraph().add(Quad.create(
+                                graphNode,
+                                Triple.create(subjectNode, predicateNode, objectNode)
+                        ));
+                    } else {
+                        quads.asDatasetGraph().add(Quad.create(
+                                graphNode,
+                                Triple.create(subjectNode, predicateNode, objectNode)
+                        ));
+                    }
                 }
             } finally {
                 rs.close();
@@ -425,19 +437,19 @@ public class ApplicationStores {
     // SDB
 
     private StoreDesc makeStoreDesc(Properties props) {
-        String layoutStr = props.getProperty(PROPERTY_DB_SDB_LAYOUT, DEFAULT_LAYOUT);
-        String dbtypeStr = props.getProperty(PROPERTY_DB_TYPE, DEFAULT_TYPE);
+        String layoutStr = props.getProperty(PROPERTY_DB_SDB_LAYOUT, DEFAULT_LAYOUT).trim();
+        String dbtypeStr = props.getProperty(PROPERTY_DB_TYPE, DEFAULT_TYPE).trim();
         return new StoreDesc(LayoutType.fetch(layoutStr), DatabaseType.fetch(dbtypeStr));
     }
 
     private Connection makeConnection(Properties props) {
         try {
-            Class.forName(props.getProperty(PROPERTY_DB_DRIVER_CLASS_NAME, DEFAULT_DRIVER_CLASS));
-            String url = props.getProperty(PROPERTY_DB_URL);
-            String user = props.getProperty(PROPERTY_DB_USERNAME);
-            String pass = props.getProperty(PROPERTY_DB_PASSWORD);
+            Class.forName(props.getProperty(PROPERTY_DB_DRIVER_CLASS_NAME, DEFAULT_DRIVER_CLASS).trim());
+            String url = props.getProperty(PROPERTY_DB_URL).trim();
+            String user = props.getProperty(PROPERTY_DB_USERNAME).trim();
+            String pass = props.getProperty(PROPERTY_DB_PASSWORD).trim();
 
-            String dbtypeStr = props.getProperty(PROPERTY_DB_TYPE, DEFAULT_TYPE);
+            String dbtypeStr = props.getProperty(PROPERTY_DB_TYPE, DEFAULT_TYPE).trim();
             if (DEFAULT_TYPE.equals(dbtypeStr) && !url.contains("?")) {
                 url += "?useUnicode=yes&characterEncoding=utf8";
             }
