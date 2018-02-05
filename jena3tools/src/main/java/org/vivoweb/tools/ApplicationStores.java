@@ -58,10 +58,16 @@ public class ApplicationStores {
     private Connection contentConnection;
     private StoreDesc  contentStoreDesc;
 
+    private RDFFormat outputFormat;
+
     private boolean configured = false;
 
-    public ApplicationStores(String homeDir) {
+    public ApplicationStores(String homeDir, RDFFormat outputFormat) {
+
         File config = Utils.resolveFile(homeDir, "config/applicationSetup.n3");
+
+        this.outputFormat = outputFormat;
+
         try {
             InputStream in = new FileInputStream(config);
             applicationModel = ModelFactory.createDefaultModel();
@@ -206,7 +212,7 @@ public class ApplicationStores {
         if (configurationDataset != null) {
             try {
                 OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(output, false));
-                RDFDataMgr.write(outputStream, configurationDataset, RDFFormat.TRIG_BLOCKS);
+                RDFDataMgr.write(outputStream, configurationDataset, outputFormat);
                 outputStream.close();
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to write configuration dump (dir error)");
@@ -236,13 +242,14 @@ public class ApplicationStores {
                             }
 
                             if (blankQuads.asDatasetGraph().size() > 0) {
-                                RDFDataMgr.write(outputStream, blankQuads, RDFFormat.TRIG_BLOCKS);
+                                RDFDataMgr.write(outputStream, blankQuads, outputFormat);
                             }
                         } else {
-                            RDFDataMgr.write(outputStream, contentDataset, RDFFormat.TRIG_BLOCKS);
+                            RDFDataMgr.write(outputStream, contentDataset, outputFormat);
                         }
                     } else {
-                        RDFDataMgr.write(outputStream, contentDataset, RDFFormat.TRIG_BLOCKS);
+                        // RDFFormat will be one of TRIG_BLOCKS, TURTLE_BLOCKS, RDFXML_PRETTY, NTRIPLES, JSONLD_PRETTY
+                        RDFDataMgr.write(outputStream, contentDataset, outputFormat);
                     }
                 } finally {
                     outputStream.close();
@@ -329,7 +336,7 @@ public class ApplicationStores {
             }
 
             if (quads.asDatasetGraph().size() > 0) {
-                RDFDataMgr.write(outputStream, quads, RDFFormat.TRIG_BLOCKS);
+                RDFDataMgr.write(outputStream, quads, outputFormat);
                 return true;
             }
         } catch (SQLException sqle) {
