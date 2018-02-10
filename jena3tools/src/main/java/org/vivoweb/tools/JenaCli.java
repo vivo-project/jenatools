@@ -46,8 +46,9 @@ public class JenaCli {
                 }
             }
 
-            File contentDump = Utils.resolveFile(options.homeDir, "dumps/content.trig");
-            File configurationDump = Utils.resolveFile(options.homeDir, "dumps/configuration.trig");
+            File contentDump = Utils.resolveFile(options.homeDir, "dumps/content." + options.outputString);
+            File configurationDump = Utils.resolveFile(options.homeDir, "dumps/configuration." +
+                    options.outputString);
 
             if (options.exportMode) {
                 if (!options.force) {
@@ -191,12 +192,14 @@ public class JenaCli {
                 outputFormat = RDFFormat.TRIG_BLOCKS;
             } else if ("nt".equals(outputString)) {
                 outputFormat = RDFFormat.NTRIPLES;
+            } else if ("nq".equals(outputString)) {
+                outputFormat = RDFFormat.NQUADS;
             } else if ("ttl".equals(outputString)) {
-                outputFormat = RDFFormat.TURTLE_BLOCKS;
+                outputFormat = RDFFormat.TURTLE;
             } else if ("rdf".equals(outputString)) {
-                outputFormat = RDFFormat.RDFXML_PRETTY;
+                outputFormat = RDFFormat.RDFXML;
             } else if ("jsonld".equals(outputString)) {
-                outputFormat = RDFFormat.JSONLD_PRETTY;
+                outputFormat = RDFFormat.JSONLD;
             } else {
                 return false;
             }

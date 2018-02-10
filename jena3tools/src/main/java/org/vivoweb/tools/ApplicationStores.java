@@ -212,7 +212,7 @@ public class ApplicationStores {
         if (configurationDataset != null) {
             try {
                 OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(output, false));
-                RDFDataMgr.write(outputStream, configurationDataset, outputFormat);
+                writeRDF(outputStream, configurationDataset, outputFormat);
                 outputStream.close();
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to write configuration dump (dir error)");
@@ -242,14 +242,13 @@ public class ApplicationStores {
                             }
 
                             if (blankQuads.asDatasetGraph().size() > 0) {
-                                RDFDataMgr.write(outputStream, blankQuads, outputFormat);
+                                writeRDF(outputStream, blankQuads, outputFormat);
                             }
                         } else {
-                            RDFDataMgr.write(outputStream, contentDataset, outputFormat);
+                            writeRDF(outputStream, contentDataset, outputFormat);
                         }
                     } else {
-                        // RDFFormat will be one of TRIG_BLOCKS, TURTLE_BLOCKS, RDFXML_PRETTY, NTRIPLES, JSONLD_PRETTY
-                        RDFDataMgr.write(outputStream, contentDataset, outputFormat);
+                        writeRDF(outputStream, contentDataset, outputFormat);
                     }
                 } finally {
                     outputStream.close();
@@ -336,7 +335,7 @@ public class ApplicationStores {
             }
 
             if (quads.asDatasetGraph().size() > 0) {
-                RDFDataMgr.write(outputStream, quads, outputFormat);
+                writeRDF(outputStream, quads, outputFormat);
                 return true;
             }
         } catch (SQLException sqle) {
@@ -369,6 +368,17 @@ public class ApplicationStores {
                 return NodeFactory.createLiteral(lex, dt);
             default:
                 return NodeFactory.createLiteral("UNRECOGNIZED");
+        }
+    }
+
+    private void writeRDF(OutputStream outputStream, Dataset dataset, RDFFormat outputFormat){
+        if (outputFormat.equals(RDFFormat.NQ) || outputFormat.equals(RDFFormat.TRIG_BLOCKS) ||
+                outputFormat.equals(RDFFormat.JSONLD)) {
+            // for quad formats, write the dataset
+            RDFDataMgr.write(outputStream, dataset, outputFormat);
+        } else {
+            // for triple formats, write the union model. Graph information is not included
+            RDFDataMgr.write(outputStream, dataset.getUnionModel(), outputFormat);
         }
     }
 
