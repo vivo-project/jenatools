@@ -235,7 +235,7 @@ public class ApplicationStores {
                             long offset = 0;
                             long limit  = 10000;
 
-                            Dataset blankQuads = DatasetFactory.createMem();
+                            Dataset blankQuads = DatasetFactory.create();
 
                             while (writeContentSQL(outputStream, blankQuads, offset, limit)) {
                                 offset += limit;
