@@ -38,7 +38,7 @@ found in \<home\>/bin
     -e, --export   Export data from triple stores. Default format is TriG
     -h, --help     Display help text
     -f, --force    Force overwrite of previous exports
-    -o, --output   Output format followed by one of nt, trig, rdf, or ttl
+    -o, --output   Output format followed by one of nt, nq, trig, rdf, or ttl
     
 ## jena3tools
 
@@ -50,6 +50,6 @@ found in \<home\>/bin
     -e, --export   Export data from triple stores. Default format is TriG
     -h, --help     Display help text
     -f, --force    Force overwrite of previous exports
-    -o, --output   Output format followed by one of nt, jsonld, trig, rdf, or ttl
+    -o, --output   Output format followed by one of nt, nq, jsonld, trig, rdf, or ttl
 
 
