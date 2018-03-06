@@ -58,10 +58,16 @@ public class ApplicationStores {
     private Connection contentConnection;
     private StoreDesc  contentStoreDesc;
 
+    private RDFFormat outputFormat;
+
     private boolean configured = false;
 
-    public ApplicationStores(String homeDir) {
+    public ApplicationStores(String homeDir, RDFFormat outputFormat) {
+
         File config = Utils.resolveFile(homeDir, "config/applicationSetup.n3");
+
+        this.outputFormat = outputFormat;
+
         try {
             InputStream in = new FileInputStream(config);
             applicationModel = ModelFactory.createDefaultModel();
@@ -206,7 +212,7 @@ public class ApplicationStores {
         if (configurationDataset != null) {
             try {
                 OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(output, false));
-                RDFDataMgr.write(outputStream, configurationDataset, RDFFormat.TRIG_BLOCKS);
+                writeRDF(outputStream, configurationDataset, outputFormat);
                 outputStream.close();
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to write configuration dump (dir error)");
@@ -229,20 +235,20 @@ public class ApplicationStores {
                             long offset = 0;
                             long limit  = 10000;
 
-                            Dataset blankQuads = DatasetFactory.createMem();
+                            Dataset blankQuads = DatasetFactory.create();
 
                             while (writeContentSQL(outputStream, blankQuads, offset, limit)) {
                                 offset += limit;
                             }
 
                             if (blankQuads.asDatasetGraph().size() > 0) {
-                                RDFDataMgr.write(outputStream, blankQuads, RDFFormat.TRIG_BLOCKS);
+                                writeRDF(outputStream, blankQuads, outputFormat);
                             }
                         } else {
-                            RDFDataMgr.write(outputStream, contentDataset, RDFFormat.TRIG_BLOCKS);
+                            writeRDF(outputStream, contentDataset, outputFormat);
                         }
                     } else {
-                        RDFDataMgr.write(outputStream, contentDataset, RDFFormat.TRIG_BLOCKS);
+                        writeRDF(outputStream, contentDataset, outputFormat);
                     }
                 } finally {
                     outputStream.close();
@@ -329,7 +335,7 @@ public class ApplicationStores {
             }
 
             if (quads.asDatasetGraph().size() > 0) {
-                RDFDataMgr.write(outputStream, quads, RDFFormat.TRIG_BLOCKS);
+                writeRDF(outputStream, quads, outputFormat);
                 return true;
             }
         } catch (SQLException sqle) {
@@ -362,6 +368,17 @@ public class ApplicationStores {
                 return NodeFactory.createLiteral(lex, dt);
             default:
                 return NodeFactory.createLiteral("UNRECOGNIZED");
+        }
+    }
+
+    private void writeRDF(OutputStream outputStream, Dataset dataset, RDFFormat outputFormat){
+        if (outputFormat.equals(RDFFormat.NQ) || outputFormat.equals(RDFFormat.TRIG_BLOCKS) ||
+                outputFormat.equals(RDFFormat.JSONLD)) {
+            // for quad formats, write the dataset
+            RDFDataMgr.write(outputStream, dataset, outputFormat);
+        } else {
+            // for triple formats, write the union model. Graph information is not included
+            RDFDataMgr.write(outputStream, dataset.getUnionModel(), outputFormat);
         }
     }
 

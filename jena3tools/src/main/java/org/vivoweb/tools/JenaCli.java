@@ -4,6 +4,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import org.apache.jena.riot.RDFFormat;
+
 import java.io.File;
 
 public class JenaCli {
@@ -12,7 +14,9 @@ public class JenaCli {
     }
 
     public static void main (String[] arg) {
+
         Options options = parseArguments(arg);
+
         if (options == null) {
             System.err.println("Incorrect arguments supplied.");
             System.err.println("");
@@ -26,7 +30,8 @@ public class JenaCli {
             System.exit(1);
         }
 
-        ApplicationStores applicationStores = new ApplicationStores(options.homeDir);
+        ApplicationStores applicationStores = new ApplicationStores(options.homeDir, options.outputFormat);
+
         try {
             File dumpDir = Utils.resolveFile(options.homeDir, "dumps");
             if (dumpDir.exists()) {
@@ -41,8 +46,9 @@ public class JenaCli {
                 }
             }
 
-            File contentDump = Utils.resolveFile(options.homeDir, "dumps/content.trig");
-            File configurationDump = Utils.resolveFile(options.homeDir, "dumps/configuration.trig");
+            File contentDump = Utils.resolveFile(options.homeDir, "dumps/content." + options.outputString);
+            File configurationDump = Utils.resolveFile(options.homeDir, "dumps/configuration." +
+                    options.outputString);
 
             if (options.exportMode) {
                 if (!options.force) {
@@ -96,6 +102,15 @@ public class JenaCli {
                     if (i < arg.length - 1) {
                         i++;
                         options.homeDir = arg[i];
+                    }
+                }
+
+                if ("-o".equalsIgnoreCase(arg[i]) ||
+                        "--output".equalsIgnoreCase(arg[i])
+                        ) {
+                    if (i < arg.length - 1) {
+                        i++;
+                        options.outputString = arg[i];
                     }
                 }
 
@@ -165,9 +180,27 @@ public class JenaCli {
         public boolean importMode = false;
         public boolean exportMode = false;
         public boolean force = false;
+        public String outputString = "trig";
+        public RDFFormat outputFormat = RDFFormat.TRIG_BLOCKS;
 
         private boolean isValid() {
             if (StringUtils.isEmpty(homeDir)) {
+                return false;
+            }
+
+            if ("trig".equals(outputString)) {
+                outputFormat = RDFFormat.TRIG_BLOCKS;
+            } else if ("nt".equals(outputString)) {
+                outputFormat = RDFFormat.NTRIPLES;
+            } else if ("nq".equals(outputString)) {
+                outputFormat = RDFFormat.NQUADS;
+            } else if ("ttl".equals(outputString)) {
+                outputFormat = RDFFormat.TURTLE;
+            } else if ("rdf".equals(outputString)) {
+                outputFormat = RDFFormat.RDFXML;
+            } else if ("jsonld".equals(outputString)) {
+                outputFormat = RDFFormat.JSONLD;
+            } else {
                 return false;
             }
 

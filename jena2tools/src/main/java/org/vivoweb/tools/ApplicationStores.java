@@ -13,7 +13,6 @@ import com.hp.hpl.jena.sparql.core.Quad;
 import com.hp.hpl.jena.tdb.TDB;
 import org.apache.commons.lang3.StringUtils;
 import com.hp.hpl.jena.query.Dataset;
-import com.hp.hpl.jena.query.ReadWrite;
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
 import com.hp.hpl.jena.rdf.model.NodeIterator;
@@ -56,11 +55,16 @@ public class ApplicationStores {
 
     private Connection contentConnection;
     private StoreDesc  contentStoreDesc;
+    private RDFFormat outputFormat;
 
     private boolean configured = false;
 
-    public ApplicationStores(String homeDir) {
+    public ApplicationStores(String homeDir, RDFFormat outputFormat) {
+
+        this.outputFormat = outputFormat;
+
         File config = Utils.resolveFile(homeDir, "config/applicationSetup.n3");
+
         try {
             InputStream in = new FileInputStream(config);
             applicationModel = ModelFactory.createDefaultModel();
@@ -69,7 +73,7 @@ public class ApplicationStores {
         } catch (FileNotFoundException e) {
             throw new RuntimeException("Application setup not found");
         } catch (IOException e) {
-            throw new RuntimeException("Error closing config");
+            throw new RuntimeException("Error closing config", e);
         }
 
         try {
@@ -149,7 +153,7 @@ public class ApplicationStores {
 
             configured = true;
         } catch (SQLException e) {
-            throw new RuntimeException("SQL Exception");
+            throw new RuntimeException("SQL Exception", e);
         } finally {
             if (!configured) {
                 close();
@@ -194,7 +198,7 @@ public class ApplicationStores {
                     inputStream.close();
                 }
             } catch (FileNotFoundException e) {
-                throw new RuntimeException("Unable to find content dump");
+                throw new RuntimeException("Unable to find content dump (dir error)");
             } catch (IOException e) {
                 throw new RuntimeException("Unable to read content dump", e);
             }
@@ -205,7 +209,15 @@ public class ApplicationStores {
         if (configurationDataset != null) {
             try {
                 OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(output, false));
-                RDFDataMgr.write(outputStream, configurationDataset, RDFFormat.TRIG_BLOCKS);
+                if (outputFormat.equals(RDFFormat.NQ) || outputFormat.equals(RDFFormat.TRIG_BLOCKS)) {
+                    // for quad formats, write the dataset
+                    RDFDataMgr.write(outputStream, configurationDataset, outputFormat);
+                } else {
+                    // for triple formats, create a union model and write it
+                    Model m = configurationDataset.getNamedModel("http://vitro.mannlib.cornell.edu/default/vitro-kb-displayMetadata");
+                    m = m.union(configurationDataset.getNamedModel("http://vitro.mannlib.cornell.edu/default/vitro-kb-userAccounts"));
+                    RDFDataMgr.write(outputStream, m, outputFormat);
+                }
                 outputStream.close();
             } catch (FileNotFoundException e) {
                 throw new RuntimeException("Unable to write configuration dump (dir error)");
@@ -235,13 +247,13 @@ public class ApplicationStores {
                             }
 
                             if (blankQuads.asDatasetGraph().size() > 0) {
-                                RDFDataMgr.write(outputStream, blankQuads, RDFFormat.TRIG_BLOCKS);
+                                writeRDF(outputStream, blankQuads, outputFormat);
                             }
                         } else {
-                            RDFDataMgr.write(outputStream, contentDataset, RDFFormat.TRIG_BLOCKS);
+                            writeRDF(outputStream, contentDataset, outputFormat);
                         }
                     } else {
-                        RDFDataMgr.write(outputStream, contentDataset, RDFFormat.TRIG_BLOCKS);
+                        writeRDF(outputStream, contentDataset, outputFormat);
                     }
                 } finally {
                     outputStream.close();
@@ -252,6 +264,28 @@ public class ApplicationStores {
                 throw new RuntimeException("Unable to write content dump", e);
             }
         }
+    }
+
+    public Model createUnionModel(Dataset d) {
+        Model m = ModelFactory.createDefaultModel();
+        try{
+            java.sql.Statement stmt = contentConnection.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT N4.lex AS g_name FROM (SELECT g from Quads GROUP BY g " +
+                    "ORDER BY g) Q LEFT OUTER JOIN Nodes AS N4 ON (Q.g = N4.hash)");
+            try{
+                while(rs.next()) {
+                    System.out.println("Union model " + rs.getString("g_name"));
+                    m = m.union(d.getNamedModel(rs.getString("g_name")));
+                }
+            }
+            finally {
+                rs.close();
+            }
+        }
+        catch (SQLException sqle) {
+            throw new RuntimeException("Unable to construct union model", sqle);
+        }
+        return m;
     }
 
     private boolean writeContentSQL(OutputStream outputStream, Dataset blankQuads, long offset, long limit) {
@@ -328,7 +362,7 @@ public class ApplicationStores {
             }
 
             if (quads.asDatasetGraph().size() > 0) {
-                RDFDataMgr.write(outputStream, quads, RDFFormat.TRIG_BLOCKS);
+                writeRDF(outputStream, quads, outputFormat);
                 return true;
             }
         } catch (SQLException sqle) {
@@ -362,6 +396,17 @@ public class ApplicationStores {
             default:
                 return NodeFactory.createLiteral("UNRECOGNIZED");
         }
+    }
+
+    private void writeRDF(OutputStream outputStream, Dataset dataset, RDFFormat outputFormat){
+        if (outputFormat.equals(RDFFormat.NQ) || outputFormat.equals(RDFFormat.TRIG_BLOCKS)) {
+            // for quad formats, write the dataset
+            RDFDataMgr.write(outputStream, dataset, outputFormat);
+         } else {
+            // for triple formats, create a union model and write it
+            Model m = createUnionModel(dataset);
+            RDFDataMgr.write(outputStream, m, outputFormat);
+         }
     }
 
     public boolean isEmpty() {
