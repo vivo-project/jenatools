@@ -7,13 +7,13 @@
 
     <groupId>org.vivoweb</groupId>
     <artifactId>jena2tools</artifactId>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
     <packaging>jar</packaging>
 
     <parent>
         <groupId>org.vivoweb</groupId>
         <artifactId>jenatools</artifactId>
-        <version>1.1.1</version>
+        <version>1.1.2</version>
         <relativePath>..</relativePath>
     </parent>
 
@@ -79,7 +79,7 @@
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.11</version>
+            <version>5.1.46</version>
         </dependency>
     </dependencies>
 </project>

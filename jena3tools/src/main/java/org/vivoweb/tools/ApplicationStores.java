@@ -504,7 +504,7 @@ public class ApplicationStores {
         }
     }
 
-    static final String DEFAULT_DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
+    static final String DEFAULT_DRIVER_CLASS = "com.mysql.jdbc.Driver";
     static final String DEFAULT_LAYOUT = "layout2/hash";
     static final String DEFAULT_TYPE = "MySQL";
 
