@@ -80,7 +80,9 @@ public class ApplicationStores {
             Resource contentSource = getObjectFor("http://vitro.mannlib.cornell.edu/ns/vitro/ApplicationSetup#hasContentTripleSource");
             Resource configurationSource = getObjectFor("http://vitro.mannlib.cornell.edu/ns/vitro/ApplicationSetup#hasConfigurationTripleSource");
 
-            if (isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp.triplesource.impl.sdb.ContentTripleSourceSDB")) {
+            // Check for content source type in both 1.10 and <1.9 formats
+            if (isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp.triplesource.impl.sdb.ContentTripleSourceSDB") ||
+                    isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp#triplesource.impl.sdb.ContentTripleSourceSDB")) {
                 Properties props = new Properties();
                 try {
                     InputStream in = new FileInputStream(Utils.resolveFile(homeDir, "runtime.properties"));
@@ -108,7 +110,9 @@ public class ApplicationStores {
                 if (contentDataset == null) {
                     throw new RuntimeException("Unable to connect to SDB content dataset");
                 }
-            } else if (isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp.triplesource.impl.tdb.ContentTripleSourceTDB")) {
+                // Check for content source type in both 1.10 and <1.9 formats
+            } else if (isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp.triplesource.impl.tdb.ContentTripleSourceTDB") ||
+                    isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp#triplesource.impl.tdb.ContentTripleSourceTDB")) {
                 Statement stmt = contentSource.getProperty(applicationModel.createProperty("http://vitro.mannlib.cornell.edu/ns/vitro/ApplicationSetup#hasTdbDirectory"));
 
                 String tdbDirectory = null;
@@ -133,9 +137,13 @@ public class ApplicationStores {
                 if (contentDataset == null) {
                     throw new RuntimeException("Unable to open TDB content triple store");
                 }
+            } else {
+                 throw new RuntimeException("No compatible 'contentSource' found!");
             }
 
-            if (isType(configurationSource, "java:edu.cornell.mannlib.vitro.webapp.triplesource.impl.tdb.ConfigurationTripleSourceTDB")) {
+            // Check for configuration source type in both 1.10 and <1.9 formats
+            if (isType(configurationSource, "java:edu.cornell.mannlib.vitro.webapp.triplesource.impl.tdb.ConfigurationTripleSourceTDB") ||
+                    isType(configurationSource, "java:edu.cornell.mannlib.vitro.webapp#triplesource.impl.tdb.ConfigurationTripleSourceTDB")) {
                 File configFile = Utils.resolveFile(homeDir, "tdbModels");
                 if (!configFile.exists()) {
                     if (!configFile.mkdirs()) {
@@ -149,6 +157,8 @@ public class ApplicationStores {
                 if (configurationDataset == null) {
                     throw new RuntimeException("Unable to open TDB configuration triple store");
                 }
+            } else {
+                throw new RuntimeException("No compatible 'configurationSource' found!");
             }
 
             configured = true;
