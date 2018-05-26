@@ -467,8 +467,33 @@ public class ApplicationStores {
             String pass = props.getProperty(PROPERTY_DB_PASSWORD).trim();
 
             String dbtypeStr = props.getProperty(PROPERTY_DB_TYPE, DEFAULT_TYPE).trim();
-            if (DEFAULT_TYPE.equals(dbtypeStr) && !url.contains("?")) {
-                url += "?useUnicode=yes&characterEncoding=utf8";
+            if (DEFAULT_TYPE.equals(dbtypeStr)) {
+                if (!url.contains("?")) {
+                    url += "?useUnicode=yes&characterEncoding=utf8&nullNamePatternMatchesAll=true&cachePrepStmts=true&useServerPrepStmts=true&serverTimezone=UTC&useSSL=false";
+                } else {
+                    String urlLwr = url.toLowerCase();
+                    if (!urlLwr.contains("useunicode")) {
+                        url += "&useUnicode=yes";
+                    }
+                    if (!urlLwr.contains("characterencoding")) {
+                        url += "&characterEncoding=utf8";
+                    }
+                    if (!urlLwr.contains("nullnamepatternmatchesall")) {
+                        url += "&nullNamePatternMatchesAll=true";
+                    }
+                    if (!urlLwr.contains("cacheprepstmts")) {
+                        url += "&cachePrepStmts=true";
+                    }
+                    if (!urlLwr.contains("useserverprepstmts")) {
+                        url += "&useServerPrepStmts=true";
+                    }
+                    if (!urlLwr.contains("servertimezone")) {
+                        url += "&serverTimezone=UTC";
+                    }
+                    if (!urlLwr.contains("usessl")) {
+                        url += "&useSSL=false";
+                    }
+                }
             }
             
             return DriverManager.getConnection(url, user, pass);
