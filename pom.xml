@@ -10,7 +10,7 @@
     <version>1.2.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>Vitro</name>
+    <name>Vitro jena tools</name>
     <description>Vitro jena tools</description>
     <url>http://vivoweb.org/</url>
 
@@ -49,8 +49,8 @@
        snapshots into the snapshot repository below.
     -->
     <scm>
-        <connection>scm:git:git@github.com:vivo-project/Vitro.git</connection>
-        <developerConnection>scm:git:git@github.com:vivo-project/Vitro.git</developerConnection>
+        <connection>scm:git:git@github.com:vivo-project/jenatools.git</connection>
+        <developerConnection>scm:git:git@github.com:vivo-project/jenatools.git</developerConnection>
         <url>git@github.com:vivo-project/jenatools.git</url>
         <tag>HEAD</tag>
     </scm>
@@ -217,7 +217,7 @@
                 <plugin>
                     <groupId>org.sonatype.plugins</groupId>
                     <artifactId>nexus-staging-maven-plugin</artifactId>
-                    <version>1.6.3</version>
+                    <version>1.6.7</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -228,5 +228,9 @@
             <id>ossrh</id>
             <url>https://oss.sonatype.org/content/repositories/snapshots</url>
         </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>        
     </distributionManagement>
 </project>
