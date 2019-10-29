@@ -159,6 +159,10 @@ public class JenaCli {
                     if ("applicationSetup.n3".equals(configs.getName())) {
                         hasConfigDir = true;
                     }
+
+                    if ("runtime.properties".equals(child.getName())) {
+                        hasRuntimeProperties = true;
+                    }
                 }
 
             }
