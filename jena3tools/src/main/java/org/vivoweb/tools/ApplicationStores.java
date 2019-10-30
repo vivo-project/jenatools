@@ -65,6 +65,10 @@ public class ApplicationStores {
     public ApplicationStores(String homeDir, RDFFormat outputFormat) {
 
         File config = Utils.resolveFile(homeDir, "config/applicationSetup.n3");
+        File runtimeProperties = Utils.resolveFile(homeDir, "config/runtime.properties");
+        if (!runtimeProperties.exists()) {
+            runtimeProperties = Utils.resolveFile(homeDir, "runtime.properties");
+        }
 
         this.outputFormat = outputFormat;
 
@@ -88,7 +92,7 @@ public class ApplicationStores {
                     isType(contentSource, "java:edu.cornell.mannlib.vitro.webapp#triplesource.impl.sdb.ContentTripleSourceSDB")) {
                 Properties props = new Properties();
                 try {
-                    InputStream in = new FileInputStream(Utils.resolveFile(homeDir, "runtime.properties"));
+                    InputStream in = new FileInputStream(runtimeProperties);
                     props.load(in);
                     in.close();
                 } catch (FileNotFoundException f) {
@@ -505,7 +509,7 @@ public class ApplicationStores {
                     }
                 }
             }
-            
+
             return DriverManager.getConnection(url, user, pass);
         } catch (ClassNotFoundException e) {
             throw new RuntimeException("Unable to find database driver");
