@@ -241,22 +241,26 @@ public class ApplicationStores {
             try {
                 OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(output, false));
                 try {
-                    if (LayoutType.LayoutTripleNodesHash.equals(contentStoreDesc.getLayout()) ||
-                        LayoutType.LayoutTripleNodesIndex.equals(contentStoreDesc.getLayout())) {
-                        if (DatabaseType.MySQL.equals(contentStoreDesc.getDbType()) ||
-                                DatabaseType.PostgreSQL.equals(contentStoreDesc.getDbType())) {
+                    if (contentConnection != null) {
+                        if (LayoutType.LayoutTripleNodesHash.equals(contentStoreDesc.getLayout()) ||
+                            LayoutType.LayoutTripleNodesIndex.equals(contentStoreDesc.getLayout())) {
+                            if (DatabaseType.MySQL.equals(contentStoreDesc.getDbType()) ||
+                                    DatabaseType.PostgreSQL.equals(contentStoreDesc.getDbType())) {
 
-                            long offset = 0;
-                            long limit  = 10000;
+                                long offset = 0;
+                                long limit  = 10000;
 
-                            Dataset blankQuads = DatasetFactory.create();
+                                Dataset blankQuads = DatasetFactory.create();
 
-                            while (writeContentSQL(outputStream, blankQuads, offset, limit)) {
-                                offset += limit;
-                            }
+                                while (writeContentSQL(outputStream, blankQuads, offset, limit)) {
+                                    offset += limit;
+                                }
 
-                            if (blankQuads.asDatasetGraph().size() > 0) {
-                                writeRDF(outputStream, blankQuads, outputFormat);
+                                if (blankQuads.asDatasetGraph().size() > 0) {
+                                    writeRDF(outputStream, blankQuads, outputFormat);
+                                }
+                            } else {
+                                writeRDF(outputStream, contentDataset, outputFormat);
                             }
                         } else {
                             writeRDF(outputStream, contentDataset, outputFormat);
